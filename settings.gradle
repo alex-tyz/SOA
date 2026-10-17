@@ -1,0 +1,3 @@
+rootProject.name = 'soa-lab2'
+
+include 'space-marine-service', 'starship-service'

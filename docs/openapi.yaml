@@ -1,0 +1,980 @@
+openapi: 3.0.3
+info:
+  title: Space Marines & Starship API
+  version: 1.0.0
+  contact:
+    name: Разработчик
+  description: |
+    Спецификация для двух веб-сервисов по варианту: 67210.
+
+    **Сервис SpaceMarine** (`/space-marines`) управляет коллекцией объектов SpaceMarine: добавление, получение,
+    обновление и удаление элементов, получение списка с фильтрацией, сортировкой и пагинацией,
+    а также дополнительные операции над коллекцией.
+
+    **Сервис Starship** (`/starship`) реализует погрузку и высадку десантников.
+    Для этого он обращается к API сервиса SpaceMarine.
+servers:
+  - url: http://localhost:8080/api/v1
+    description: Сервис SpaceMarine
+  - url: http://localhost:8081/api/v1
+    description: Сервис Starship
+tags:
+  - name: space-marines
+    description: Базовые операции над коллекцией SpaceMarine
+  - name: space-marines-extra
+    description: Дополнительные операции над коллекцией SpaceMarine
+  - name: starship
+    description: Сервис Starship — погрузка и высадка десантников
+
+paths:
+  /space-marines:
+    get:
+      tags: [space-marines]
+      operationId: getSpaceMarines
+      summary: Получить список десантников
+      description: |
+        Возвращает одну страницу коллекции SpaceMarine.
+
+        **Фильтрация.** Можно указать любую комбинацию параметров-фильтров. Объект попадает
+        в выборку, только если удовлетворяет всем указанным фильтрам одновременно (логическое И).
+        Фильтры сравнивают значение поля на точное равенство.
+
+        Фильтр по полю вложенного объекта (`chapter.name`, `chapter.parentLegion`)
+        не пропускает десантников, у которых этот объект отсутствует.
+
+        **Сортировка.** Параметр `sort` можно передать несколько раз: объекты сортируются
+        сначала по первому полю, при равенстве — по второму и т. д. Префикс `-` означает
+        сортировку по убыванию, без префикса — по возрастанию.
+        Пример: `?sort=-health&sort=name`.
+        Объекты, у которых значение поля сортировки равно null, всегда идут в конце списка.
+        В конце к сортировке всегда неявно добавляется `id` по возрастанию, поэтому порядок
+        объектов однозначен. Если `sort` не указан, объекты сортируются только по `id`.
+
+        **Пагинация.** `page` — номер страницы (нумерация с 1), `size` — количество элементов
+        на странице (от 1 до 100). Если номер страницы больше общего числа страниц,
+        возвращается пустой список.
+
+        **Без параметров** возвращается первая страница из 10 элементов всей коллекции,
+        отсортированная по `id` по возрастанию.
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+        - $ref: '#/components/parameters/Sort'
+        - name: id
+          in: query
+          description: Фильтр по полю id
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
+        - name: name
+          in: query
+          description: Фильтр по полю name
+          schema:
+            type: string
+            minLength: 1
+        - name: coordinates.x
+          in: query
+          description: Фильтр по полю coordinates.x
+          schema:
+            type: integer
+            format: int32
+        - name: coordinates.y
+          in: query
+          description: Фильтр по полю coordinates.y
+          schema:
+            type: integer
+            format: int32
+        - name: creationDate
+          in: query
+          description: Фильтр по полю creationDate (формат ГГГГ-ММ-ДД)
+          schema:
+            type: string
+            format: date
+        - name: health
+          in: query
+          description: Фильтр по полю health
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
+        - name: loyal
+          in: query
+          description: Фильтр по полю loyal
+          schema:
+            type: boolean
+        - name: achievements
+          in: query
+          description: Фильтр по полю achievements (точное совпадение)
+          schema:
+            type: string
+        - name: weaponType
+          in: query
+          description: Фильтр по полю weaponType
+          schema:
+            $ref: '#/components/schemas/Weapon'
+        - name: chapter.name
+          in: query
+          description: Фильтр по полю chapter.name. Десантники без ордена не попадают в выборку
+          schema:
+            type: string
+            minLength: 1
+        - name: chapter.parentLegion
+          in: query
+          description: Фильтр по полю chapter.parentLegion. Десантники без ордена не попадают в выборку
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Страница коллекции успешно получена
+          content:
+            application/xml:
+              schema:
+                $ref: '#/components/schemas/SpaceMarinePage'
+        '400':
+          $ref: '#/components/responses/InvalidQueryParameters'
+        '406':
+          $ref: '#/components/responses/NotAcceptable'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    post:
+      tags: [space-marines]
+      operationId: createSpaceMarine
+      summary: Добавить нового десантника
+      description: |
+        Добавляет новый объект SpaceMarine в коллекцию.
+        Поля `id` и `creationDate` генерируются сервером автоматически и в запросе не передаются.
+        В ответе возвращается созданный объект, а в заголовке `Location` — его адрес.
+
+        Если XML невалиден или значение поля имеет неверный тип (например, `health`
+        не число), возвращается 400. Если данные нарушают ограничения класса
+        (пустое `name`, `health` ≤ 0, отсутствует обязательное поле,
+        недопустимое значение `weaponType`), возвращается 422, объект не создаётся.
+      requestBody:
+        $ref: '#/components/requestBodies/SpaceMarineBody'
+      responses:
+        '201':
+          description: Десантник успешно создан
+          headers:
+            Location:
+              description: URL созданного объекта
+              schema:
+                type: string
+                example: /api/v1/space-marines/1
+          content:
+            application/xml:
+              schema:
+                $ref: '#/components/schemas/SpaceMarine'
+        '400':
+          $ref: '#/components/responses/InvalidXmlBody'
+        '406':
+          $ref: '#/components/responses/NotAcceptable'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /space-marines/{id}:
+    parameters:
+      - $ref: '#/components/parameters/SpaceMarineId'
+    get:
+      tags: [space-marines]
+      operationId: getSpaceMarineById
+      summary: Получить десантника по id
+      description: |
+        Возвращает объект SpaceMarine с указанным id.
+        Если `id` не является целым числом больше 0, возвращается 400.
+        Если десантника с таким `id` нет, возвращается 404.
+      responses:
+        '200':
+          description: Десантник найден
+          content:
+            application/xml:
+              schema:
+                $ref: '#/components/schemas/SpaceMarine'
+        '400':
+          $ref: '#/components/responses/InvalidPathParameter'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '406':
+          $ref: '#/components/responses/NotAcceptable'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    put:
+      tags: [space-marines]
+      operationId: updateSpaceMarine
+      summary: Обновить десантника
+      description: |
+        Полностью заменяет данные объекта SpaceMarine с указанным id.
+        Поля `id` и `creationDate` не изменяются.
+        Поля, отсутствующие в запросе и допускающие null, становятся равны null.
+
+        Если десантника с таким `id` нет, возвращается 404 (новый объект не создаётся,
+        так как `id` генерирует только сервер).
+        Если данные нарушают ограничения класса, возвращается 422, объект не изменяется.
+      requestBody:
+        $ref: '#/components/requestBodies/SpaceMarineBody'
+      responses:
+        '200':
+          description: Десантник успешно обновлён
+          content:
+            application/xml:
+              schema:
+                $ref: '#/components/schemas/SpaceMarine'
+        '400':
+          $ref: '#/components/responses/InvalidXmlBodyOrPathParameter'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '406':
+          $ref: '#/components/responses/NotAcceptable'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    delete:
+      tags: [space-marines]
+      operationId: deleteSpaceMarine
+      summary: Удалить десантника
+      description: |
+        Удаляет объект SpaceMarine с указанным id из коллекции.
+        Если десантника с таким `id` нет, возвращается 404.
+      responses:
+        '204':
+          description: Десантник успешно удалён
+        '400':
+          $ref: '#/components/responses/InvalidPathParameter'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /space-marines/by-weapon-type/{weaponType}:
+    delete:
+      tags: [space-marines-extra]
+      operationId: deleteAnySpaceMarineByWeaponType
+      summary: Удалить одного десантника с заданным оружием
+      description: |
+        Удаляет один (любой) объект SpaceMarine, у которого значение поля `weaponType`
+        равно заданному. Если таких объектов несколько, удаляется объект с наименьшим `id`.
+        В ответе возвращается удалённый объект.
+        Если объектов с таким типом оружия нет, возвращается 404.
+        Недопустимое значение типа оружия — 400.
+      parameters:
+        - name: weaponType
+          in: path
+          required: true
+          description: Тип оружия. Значение чувствительно к регистру
+          schema:
+            $ref: '#/components/schemas/Weapon'
+      responses:
+        '200':
+          description: Десантник удалён, в ответе — удалённый объект
+          content:
+            application/xml:
+              schema:
+                $ref: '#/components/schemas/SpaceMarine'
+        '400':
+          $ref: '#/components/responses/InvalidPathParameter'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '406':
+          $ref: '#/components/responses/NotAcceptable'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /space-marines/by-achievements:
+    get:
+      tags: [space-marines-extra]
+      operationId: getSpaceMarinesByAchievementsSubstring
+      summary: Найти десантников по подстроке в achievements
+      description: |
+        Возвращает массив объектов SpaceMarine, у которых значение поля `achievements`
+        содержит заданную подстроку. Поиск чувствителен к регистру.
+        Объекты с `achievements = null` в результат не попадают.
+        Объекты в результате отсортированы по `id` по возрастанию.
+        Если подходящих объектов нет, возвращается пустой массив.
+      parameters:
+        - name: substring
+          in: query
+          required: true
+          description: Искомая подстрока
+          schema:
+            type: string
+            minLength: 1
+            example: Терра
+      responses:
+        '200':
+          description: Поиск выполнен
+          content:
+            application/xml:
+              schema:
+                $ref: '#/components/schemas/SpaceMarineList'
+        '400':
+          $ref: '#/components/responses/InvalidQueryParameters'
+        '406':
+          $ref: '#/components/responses/NotAcceptable'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /space-marines/achievements/unique:
+    get:
+      tags: [space-marines-extra]
+      operationId: getUniqueAchievements
+      summary: Получить уникальные значения achievements
+      description: |
+        Возвращает массив уникальных значений поля `achievements` по всем объектам коллекции.
+        Значения `null` в результат не включаются.
+        Значения отсортированы по возрастанию (лексикографически).
+        Если коллекция пуста, возвращается пустой массив.
+      responses:
+        '200':
+          description: Уникальные значения получены
+          content:
+            application/xml:
+              schema:
+                $ref: '#/components/schemas/AchievementList'
+        '406':
+          $ref: '#/components/responses/NotAcceptable'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /starship/{starship-id}/load/{space-marine-id}:
+    parameters:
+      - $ref: '#/components/parameters/StarshipId'
+      - $ref: '#/components/parameters/StarshipSpaceMarineId'
+    post:
+      tags: [starship]
+      operationId: loadSpaceMarine
+      summary: Погрузить десантника на корабль
+      description: |
+        Погружает десантника с id `space-marine-id` на корабль с id `starship-id`.
+        Корабли заранее существуют в сервисе Starship; если корабля с таким id нет,
+        возвращается 404.
+
+        Сервис запрашивает десантника у сервиса SpaceMarine
+        (`GET /space-marines/{id}`). Если десантник не найден, возвращается 404.
+        Если десантник уже находится на этом или другом корабле, возвращается 409.
+        Если сервис SpaceMarine недоступен, возвращается 503; если не ответил
+        за отведённое время — 504; если вернул ошибку или некорректный ответ — 502.
+        Во всех трёх случаях десантник на корабль не погружается.
+
+        В ответе возвращается корабль со списком десантников на борту.
+      responses:
+        '200':
+          description: Десантник погружен на корабль
+          content:
+            application/xml:
+              schema:
+                $ref: '#/components/schemas/Starship'
+        '400':
+          $ref: '#/components/responses/InvalidPathParameter'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '406':
+          $ref: '#/components/responses/NotAcceptable'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        '502':
+          $ref: '#/components/responses/BadGateway'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+        '504':
+          $ref: '#/components/responses/GatewayTimeout'
+
+  /starship/{starship-id}/unload-all:
+    parameters:
+      - $ref: '#/components/parameters/StarshipId'
+    post:
+      tags: [starship]
+      operationId: unloadAllSpaceMarines
+      summary: Высадить всех десантников с корабля
+      description: |
+        Высаживает всех десантников с корабля с id `starship-id`.
+        Если корабля с таким id нет, возвращается 404.
+        Для формирования ответа сервис получает данные десантников из сервиса SpaceMarine.
+        Десантник, который был удалён из сервиса SpaceMarine, пока находился на корабле,
+        высаживается, но в ответ не включается.
+        Если сервис SpaceMarine недоступен (503), не ответил вовремя (504) или вернул
+        ошибку (502), десантники с корабля не высаживаются.
+
+        В ответе возвращается массив высаженных десантников.
+        Если на корабле никого не было, возвращается пустой массив.
+      responses:
+        '200':
+          description: Все десантники высажены
+          content:
+            application/xml:
+              schema:
+                $ref: '#/components/schemas/SpaceMarineList'
+        '400':
+          $ref: '#/components/responses/InvalidPathParameter'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '406':
+          $ref: '#/components/responses/NotAcceptable'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        '502':
+          $ref: '#/components/responses/BadGateway'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+        '504':
+          $ref: '#/components/responses/GatewayTimeout'
+
+components:
+  parameters:
+    SpaceMarineId:
+      name: id
+      in: path
+      required: true
+      description: Идентификатор десантника
+      schema:
+        type: integer
+        format: int32
+        minimum: 1
+        example: 1
+    StarshipId:
+      name: starship-id
+      in: path
+      required: true
+      description: Идентификатор корабля
+      schema:
+        type: integer
+        format: int32
+        minimum: 1
+        example: 1
+    StarshipSpaceMarineId:
+      name: space-marine-id
+      in: path
+      required: true
+      description: Идентификатор десантника в сервисе SpaceMarine
+      schema:
+        type: integer
+        format: int32
+        minimum: 1
+        example: 1
+    Page:
+      name: page
+      in: query
+      description: Номер страницы (нумерация с 1)
+      schema:
+        type: integer
+        format: int32
+        minimum: 1
+        default: 1
+    Size:
+      name: size
+      in: query
+      description: Количество элементов на странице (от 1 до 100)
+      schema:
+        type: integer
+        format: int32
+        minimum: 1
+        maximum: 100
+        default: 10
+    Sort:
+      name: sort
+      in: query
+      description: |
+        Поле для сортировки. Можно указать несколько раз, порядок важен.
+        Префикс `-` — сортировка по убыванию.
+        Одно поле нельзя указать дважды, в том числе с разными направлениями
+        (например, `health` и `-health`), иначе возвращается 400.
+      style: form
+      explode: true
+      schema:
+        type: array
+        uniqueItems: true
+        items:
+          type: string
+          enum:
+            - 'id'
+            - '-id'
+            - 'name'
+            - '-name'
+            - 'coordinates.x'
+            - '-coordinates.x'
+            - 'coordinates.y'
+            - '-coordinates.y'
+            - 'creationDate'
+            - '-creationDate'
+            - 'health'
+            - '-health'
+            - 'loyal'
+            - '-loyal'
+            - 'achievements'
+            - '-achievements'
+            - 'weaponType'
+            - '-weaponType'
+            - 'chapter.name'
+            - '-chapter.name'
+            - 'chapter.parentLegion'
+            - '-chapter.parentLegion'
+
+  schemas:
+    Weapon:
+      type: string
+      description: Тип оружия
+      enum:
+        - HEAVY_BOLTGUN
+        - MELTAGUN
+        - BOLT_PISTOL
+        - INFERNO_PISTOL
+
+    Coordinates:
+      type: object
+      description: Координаты
+      xml:
+        name: coordinates
+      required:
+        - x
+        - y
+      properties:
+        x:
+          type: integer
+          format: int32
+          example: 10
+        y:
+          type: integer
+          format: int32
+          description: Не может быть null
+          example: 20
+
+    Chapter:
+      type: object
+      description: Орден
+      xml:
+        name: chapter
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          minLength: 1
+          pattern: '.*\S.*'
+          description: Не может быть null, строка не может быть пустой или состоять только из пробелов
+          example: Ultramarines
+        parentLegion:
+          type: string
+          description: Может отсутствовать
+          example: XIII Legion
+
+    SpaceMarineRequest:
+      type: object
+      description: |
+        Данные десантника, передаваемые клиентом при создании и обновлении.
+        Поля id и creationDate не передаются — их генерирует сервер.
+      xml:
+        name: spaceMarine
+      required:
+        - name
+        - coordinates
+        - health
+        - loyal
+      properties:
+        name:
+          type: string
+          minLength: 1
+          pattern: '.*\S.*'
+          description: Не может быть null, строка не может быть пустой или состоять только из пробелов
+          example: Titus
+        coordinates:
+          $ref: '#/components/schemas/Coordinates'
+        health:
+          type: integer
+          format: int32
+          minimum: 1
+          description: Значение должно быть больше 0
+          example: 100
+        loyal:
+          type: boolean
+          description: Не может быть null
+          example: true
+        achievements:
+          type: string
+          description: Может отсутствовать (null)
+          example: Герой осады Терры
+        weaponType:
+          $ref: '#/components/schemas/Weapon'
+        chapter:
+          $ref: '#/components/schemas/Chapter'
+
+    SpaceMarine:
+      type: object
+      description: Десантник
+      xml:
+        name: spaceMarine
+      required:
+        - id
+        - name
+        - coordinates
+        - creationDate
+        - health
+        - loyal
+      properties:
+        id:
+          type: integer
+          format: int32
+          minimum: 1
+          description: Уникальный, больше 0, генерируется автоматически
+          example: 1
+        name:
+          type: string
+          minLength: 1
+          pattern: '.*\S.*'
+          description: Не может быть null, строка не может быть пустой или состоять только из пробелов
+          example: Titus
+        coordinates:
+          $ref: '#/components/schemas/Coordinates'
+        creationDate:
+          type: string
+          format: date
+          description: Генерируется автоматически
+          example: '2026-10-03'
+        health:
+          type: integer
+          format: int32
+          minimum: 1
+          description: Значение должно быть больше 0
+          example: 100
+        loyal:
+          type: boolean
+          description: Не может быть null
+          example: true
+        achievements:
+          type: string
+          description: Может отсутствовать (null)
+          example: Герой осады Терры
+        weaponType:
+          $ref: '#/components/schemas/Weapon'
+        chapter:
+          $ref: '#/components/schemas/Chapter'
+
+    SpaceMarineList:
+      type: array
+      description: Массив десантников
+      xml:
+        name: spaceMarines
+        wrapped: true
+      items:
+        $ref: '#/components/schemas/SpaceMarine'
+
+    SpaceMarinePage:
+      type: object
+      description: Страница коллекции с информацией о пагинации
+      xml:
+        name: spaceMarinePage
+      required:
+        - spaceMarines
+        - page
+        - size
+        - totalElements
+        - totalPages
+      properties:
+        spaceMarines:
+          type: array
+          xml:
+            wrapped: true
+          items:
+            $ref: '#/components/schemas/SpaceMarine'
+        page:
+          type: integer
+          format: int32
+          description: Номер текущей страницы
+          example: 1
+        size:
+          type: integer
+          format: int32
+          description: Размер страницы
+          example: 10
+        totalElements:
+          type: integer
+          format: int64
+          description: Общее количество объектов, подходящих под фильтры
+          example: 42
+        totalPages:
+          type: integer
+          format: int32
+          description: Общее количество страниц
+          example: 5
+
+    AchievementList:
+      type: array
+      description: Массив уникальных значений achievements
+      uniqueItems: true
+      xml:
+        name: achievements
+        wrapped: true
+      items:
+        type: string
+        xml:
+          name: achievement
+        example: Герой осады Терры
+
+    Starship:
+      type: object
+      description: Корабль со списком десантников на борту
+      xml:
+        name: starship
+      required:
+        - id
+        - spaceMarines
+      properties:
+        id:
+          type: integer
+          format: int32
+          minimum: 1
+          example: 1
+        spaceMarines:
+          type: array
+          xml:
+            wrapped: true
+          items:
+            $ref: '#/components/schemas/SpaceMarine'
+
+    Error:
+      type: object
+      description: Описание ошибки
+      xml:
+        name: error
+      required:
+        - code
+        - message
+        - timestamp
+      properties:
+        code:
+          type: integer
+          format: int32
+          description: HTTP-код ошибки
+          example: 400
+        message:
+          type: string
+          description: Описание ошибки
+          example: Некорректный запрос
+        timestamp:
+          type: string
+          format: date-time
+          description: Время возникновения ошибки
+          example: '2026-10-03T12:00:00Z'
+        details:
+          type: array
+          description: Список конкретных нарушений
+          xml:
+            wrapped: true
+          items:
+            type: string
+            xml:
+              name: detail
+
+  requestBodies:
+    SpaceMarineBody:
+      required: true
+      description: |
+        Данные десантника в формате XML.
+        Поля id и creationDate не передаются — их генерирует сервер.
+      content:
+        application/xml:
+          schema:
+            $ref: '#/components/schemas/SpaceMarineRequest'
+
+  responses:
+    InvalidPathParameter:
+      description: |
+        Path-параметр имеет неверный тип, выходит за допустимый диапазон
+        либо содержит недопустимое значение.
+      content:
+        application/xml:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example: |
+            <error>
+              <code>400</code>
+              <message>Некорректный path-параметр</message>
+              <timestamp>2026-10-03T12:00:00Z</timestamp>
+              <details>
+                <detail>Значение path-параметра недопустимо</detail>
+              </details>
+            </error>
+    InvalidQueryParameters:
+      description: |
+        Один или несколько query-параметров имеют неверный тип, выходят за
+        допустимый диапазон либо содержат недопустимые значения.
+      content:
+        application/xml:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example: |
+            <error>
+              <code>400</code>
+              <message>Некорректные query-параметры</message>
+              <timestamp>2026-10-03T12:00:00Z</timestamp>
+              <details>
+                <detail>page: значение должно быть больше 0</detail>
+              </details>
+            </error>
+    InvalidXmlBody:
+      description: |
+        Тело запроса содержит невалидный XML или значение поля имеет неверный тип.
+      content:
+        application/xml:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example: |
+            <error>
+              <code>400</code>
+              <message>Некорректное тело запроса</message>
+              <timestamp>2026-10-03T12:00:00Z</timestamp>
+              <details>
+                <detail>health: ожидалось целое число</detail>
+              </details>
+            </error>
+    InvalidXmlBodyOrPathParameter:
+      description: |
+        Тело запроса содержит невалидный XML, значение поля имеет неверный тип
+        либо path-параметр `id` некорректен.
+      content:
+        application/xml:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example: |
+            <error>
+              <code>400</code>
+              <message>Некорректное тело запроса</message>
+              <timestamp>2026-10-03T12:00:00Z</timestamp>
+              <details>
+                <detail>health: ожидалось целое число</detail>
+              </details>
+            </error>
+    NotFound:
+      description: Запрашиваемый объект не найден
+      content:
+        application/xml:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example: |
+            <error>
+              <code>404</code>
+              <message>Объект не найден</message>
+              <timestamp>2026-10-03T12:00:00Z</timestamp>
+            </error>
+    Conflict:
+      description: Операция противоречит текущему состоянию (например, десантник уже на корабле)
+      content:
+        application/xml:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example: |
+            <error>
+              <code>409</code>
+              <message>Десантник уже находится на корабле</message>
+              <timestamp>2026-10-03T12:00:00Z</timestamp>
+            </error>
+    UnsupportedMediaType:
+      description: Тело запроса передано не в формате application/xml
+      content:
+        application/xml:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example: |
+            <error>
+              <code>415</code>
+              <message>Поддерживается только application/xml</message>
+              <timestamp>2026-10-03T12:00:00Z</timestamp>
+            </error>
+    NotAcceptable:
+      description: |
+        Клиент запросил в заголовке Accept формат ответа, который сервис не поддерживает.
+        Сервис возвращает данные только в формате application/xml.
+      content:
+        application/xml:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example: |
+            <error>
+              <code>406</code>
+              <message>Поддерживается только application/xml</message>
+              <timestamp>2026-10-03T12:00:00Z</timestamp>
+            </error>
+    UnprocessableEntity:
+      description: |
+        XML корректен, но данные нарушают ограничения целостности класса:
+        отсутствует обязательное поле, пустая строка в name,
+        health меньше или равно 0, недопустимое значение weaponType и т. п.
+      content:
+        application/xml:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example: |
+            <error>
+              <code>422</code>
+              <message>Нарушены ограничения целостности</message>
+              <timestamp>2026-10-03T12:00:00Z</timestamp>
+              <details>
+                <detail>name: строка не может быть пустой</detail>
+                <detail>health: значение должно быть больше 0</detail>
+              </details>
+            </error>
+    InternalServerError:
+      description: Внутренняя ошибка сервера
+      content:
+        application/xml:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example: |
+            <error>
+              <code>500</code>
+              <message>Внутренняя ошибка сервера</message>
+              <timestamp>2026-10-03T12:00:00Z</timestamp>
+            </error>
+    BadGateway:
+      description: Сервис SpaceMarine вернул некорректный ответ или ошибку
+      content:
+        application/xml:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example: |
+            <error>
+              <code>502</code>
+              <message>Сервис SpaceMarine вернул ошибку</message>
+              <timestamp>2026-10-03T12:00:00Z</timestamp>
+            </error>
+    ServiceUnavailable:
+      description: Сервис SpaceMarine недоступен
+      headers:
+        Retry-After:
+          description: Через сколько секунд имеет смысл повторить запрос
+          schema:
+            type: integer
+            minimum: 1
+            example: 30
+      content:
+        application/xml:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example: |
+            <error>
+              <code>503</code>
+              <message>Сервис SpaceMarine недоступен</message>
+              <timestamp>2026-10-03T12:00:00Z</timestamp>
+            </error>
+    GatewayTimeout:
+      description: Сервис SpaceMarine не ответил за отведённое время
+      content:
+        application/xml:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example: |
+            <error>
+              <code>504</code>
+              <message>Сервис SpaceMarine не ответил вовремя</message>
+              <timestamp>2026-10-03T12:00:00Z</timestamp>
+            </error>

@@ -1,0 +1,17 @@
+allprojects {
+    group = 'ru.itmo.soa'
+    version = '1.0'
+
+    repositories {
+        mavenCentral()
+    }
+}
+
+subprojects {
+    apply plugin: 'java'
+
+    tasks.withType(JavaCompile).configureEach {
+        options.release = 17          // байткод под Java 17: запустится на helios с 17 и с 21
+        options.encoding = 'UTF-8'    // чтобы кириллица в коде не ломалась
+    }
+}
