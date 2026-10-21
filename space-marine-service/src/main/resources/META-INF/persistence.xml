@@ -9,6 +9,7 @@
         <jta-data-source>jdbc/spacemarine</jta-data-source>
         <!-- Брать все классы с @Entity из WAR -->
         <exclude-unlisted-classes>false</exclude-unlisted-classes>
+        <shared-cache-mode>NONE</shared-cache-mode>
         <properties>
             <!-- Таблицы создаём сами скриптом, JPA их не трогает -->
             <property name="jakarta.persistence.schema-generation.database.action" value="none"/>

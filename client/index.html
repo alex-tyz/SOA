@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Space Marines</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+    <h1>Space Marines и Starship</h1>
+</header>
+
+<main>
+    <div id="messages" role="alert"></div>
+
+    <details>
+        <summary>Адреса сервисов</summary>
+        <form id="settings-form">
+            <label>Сервис SpaceMarine
+                <input type="text" id="marine-url" spellcheck="false">
+            </label>
+            <label>Сервис Starship
+                <input type="text" id="starship-url" spellcheck="false">
+            </label>
+            <p>Сервисы работают по HTTPS с самоподписанным сертификатом. При первом обращении откройте
+                <a id="marine-open" target="_blank" rel="noopener">адрес SpaceMarine</a> и
+                <a id="starship-open" target="_blank" rel="noopener">адрес Starship</a>
+                в браузере и подтвердите исключение для сертификата.</p>
+            <button type="submit">Сохранить адреса</button>
+        </form>
+    </details>
+
+<section class="card">
+    <h2>Десантники</h2>
+
+    <h3>Фильтры</h3>
+    <div id="filters" class="grid"></div>
+
+    <h3>Сортировка</h3>
+    <div id="sort-rows"></div>
+    <p class="buttons">
+        <button type="button" id="sort-add" class="secondary">Добавить поле сортировки</button>
+    </p>
+
+    <p class="buttons">
+        <button type="button" id="filters-apply">Применить</button>
+        <button type="button" id="filters-reset" class="secondary">Сбросить</button>
+    </p>
+
+    <div id="marines-table"></div>
+    <p class="pager">
+        <button type="button" id="page-first" class="secondary">В начало</button>
+        <button type="button" id="page-prev" class="secondary">Назад</button>
+        <span id="page-info">—</span>
+        <button type="button" id="page-next" class="secondary">Вперёд</button>
+        <button type="button" id="page-last" class="secondary">В конец</button>
+        <label class="inline">На странице
+            <input type="number" id="page-size" value="10" min="1" max="100">
+        </label>
+    </p>
+
+</section>
+
+<section class="card">
+    <h2 id="editor-title">Добавить десантника</h2>
+    <form id="editor-form" class="grid">
+        <label>Имя
+            <input type="text" name="name">
+        </label>
+        <label>Координата X
+            <input type="text" name="x">
+        </label>
+        <label>Координата Y
+            <input type="text" name="y">
+        </label>
+        <label>Здоровье
+            <input type="text" name="health">
+        </label>
+        <label>Лоялен
+            <select name="loyal">
+                <option value="true">да</option>
+                <option value="false">нет</option>
+                <option value="">не указано</option>
+            </select>
+        </label>
+        <label>Достижения
+            <input type="text" name="achievements">
+        </label>
+        <label>Оружие
+            <input type="text" name="weaponType" list="weapons">
+        </label>
+        <label>Орден
+            <input type="text" name="chapterName">
+        </label>
+        <label>Легион ордена
+            <input type="text" name="parentLegion">
+        </label>
+        <p class="buttons wide">
+            <button type="submit">Сохранить</button>
+            <button type="button" id="editor-cancel" class="secondary">Очистить форму</button>
+        </p>
+    </form>
+
+</section>
+
+<section class="card">
+    <h2>Дополнительные операции</h2>
+
+    <form id="extra-delete-weapon">
+        <h3>Удалить одного десантника с заданным оружием</h3>
+        <label>Оружие
+            <input type="text" id="extra-weapon" list="weapons">
+        </label>
+        <button type="submit" class="danger">Удалить</button>
+    </form>
+
+    <form id="extra-search">
+        <h3>Найти десантников по подстроке в достижениях</h3>
+        <label>Подстрока
+            <input type="text" id="extra-substring">
+        </label>
+        <button type="submit">Найти</button>
+    </form>
+
+    <h3>Уникальные значения достижений</h3>
+    <p class="buttons"><button type="button" id="extra-unique">Показать</button></p>
+
+    <div id="extra-result"></div>
+
+</section>
+
+<section class="card">
+    <h2>Корабль</h2>
+
+    <form id="ship-load">
+        <h3>Погрузить десантника на корабль</h3>
+        <label>Номер корабля
+            <input type="text" id="load-ship" value="1">
+        </label>
+        <label>Номер десантника
+            <input type="text" id="load-marine">
+        </label>
+        <button type="submit">Погрузить</button>
+    </form>
+
+    <form id="ship-unload">
+        <h3>Высадить всех десантников</h3>
+        <label>Номер корабля
+            <input type="text" id="unload-ship" value="1">
+        </label>
+        <button type="submit">Высадить всех</button>
+    </form>
+
+    <div id="ship-result"></div>
+</section>
+</main>
+
+<datalist id="weapons">
+    <option value="HEAVY_BOLTGUN"></option>
+    <option value="MELTAGUN"></option>
+    <option value="BOLT_PISTOL"></option>
+    <option value="INFERNO_PISTOL"></option>
+</datalist>
+
+<script src="app.js"></script>
+</body>
+</html>
