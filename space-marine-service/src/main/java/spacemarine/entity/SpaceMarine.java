@@ -13,7 +13,7 @@ import jakarta.persistence.Table;
 import java.time.LocalDate;
 
 @Entity
-@Table(name = "space_marine")
+@Table(name = "soa2_space_marine")
 public class SpaceMarine {
 
 

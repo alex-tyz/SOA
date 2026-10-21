@@ -1,0 +1,81 @@
+@startuml deployment
+!pragma layout smetana
+skinparam defaultFontName Helvetica
+skinparam defaultFontSize 12
+skinparam shadowing false
+skinparam dpi 160
+skinparam nodesep 45
+skinparam ranksep 65
+skinparam roundCorner 6
+skinparam node {
+  BackgroundColor #F7F9FC
+  BorderColor #4A5568
+  StereotypeFontColor #4A5568
+}
+skinparam artifact {
+  BackgroundColor #FFFFFF
+  BorderColor #2F5BD3
+}
+skinparam database {
+  BackgroundColor #FFFFFF
+  BorderColor #1F8A53
+}
+skinparam rectangle {
+  BackgroundColor #FFFFFF
+  BorderColor #9AA3B2
+  BorderStyle dashed
+}
+skinparam note {
+  BackgroundColor #FFF8E1
+  BorderColor #C9A227
+}
+skinparam ArrowColor #4A5568
+skinparam ArrowFontSize 11
+
+title Лабораторная работа №2 по СОА: схема развёртывания
+
+node "Компьютер пользователя" <<device>> as pc {
+  node "Веб-браузер" <<executionEnvironment>> as browser {
+    artifact "Клиентское приложение\nHTML, CSS, JavaScript" as client
+    artifact "Swagger UI" as swagger
+  }
+  node "SSH-клиент" <<executionEnvironment>> as ssh_client
+}
+
+rectangle "Инфраструктура ИТМО" as itmo {
+  node "helios.cs.ifmo.ru\nFreeBSD, Java 21" <<device>> as helios {
+    node "Публичный сайт se.ifmo.ru\nHTTPS :443" <<executionEnvironment>> as website {
+      artifact "~/public_html/soa-lab2/\nклиент и api.php" as public_client
+      artifact "~/public_html/swagger/\nSwagger UI и OpenAPI" as public_swagger
+      artifact "api.php\nпрокси к локальным REST API" as proxy
+    }
+
+    node "Payara 6, domain1\nHTTPS :8181\nadmin 127.0.0.1:4848" <<executionEnvironment>> as payara {
+      artifact "space-marine-service-1.0.war\nJAX-RS, /api/v1/space-marines" as marine
+    }
+
+    node "WildFly 21, отдельный экземпляр\nHTTPS 127.0.0.1:21138\nmanagement 127.0.0.1:21190" <<executionEnvironment>> as wildfly {
+      artifact "starship-service.war\nSpring MVC 5, /api/v1/starship" as starship
+    }
+
+    node "PostgreSQL\n127.0.0.1:5432" <<executionEnvironment>> as postgres {
+      database "studs, схема s413030\nsoa2_space_marine" as marine_data
+      database "studs, схема s413030\nstarship, starship_space_marine" as ship_data
+    }
+
+    node "sshd :2222" <<executionEnvironment>> as sshd
+  }
+}
+
+browser --> public_client : HTTPS :443\nзагрузка клиента
+browser --> public_swagger : HTTPS :443\nдокументация
+client --> proxy : HTTPS :443\nXML-запросы
+swagger --> proxy : HTTPS :443\nTry it out
+proxy --> marine : HTTPS localhost:8181\nREST/XML
+proxy --> starship : HTTPS 127.0.0.1:21138\nREST/XML
+starship --> marine : HTTPS localhost:8181\nREST/XML; доверенный сертификат
+marine --> marine_data : JDBC :5432
+starship --> ship_data : JDBC :5432
+ssh_client ..> sshd : SSH :2222\nразвёртывание и диагностика
+
+@enduml

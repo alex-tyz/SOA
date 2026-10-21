@@ -10,7 +10,7 @@ public class Coordinates {
     private Integer x;
 
     @Column(name = "coordinates_y", nullable = false)
-    private Integer y;
+    private Float y;
 
     public Coordinates() {
     }
@@ -23,11 +23,11 @@ public class Coordinates {
         this.x = x;
     }
 
-    public Integer getY() {
+    public Float getY() {
         return y;
     }
 
-    public void setY(Integer y) {
+    public void setY(Float y) {
         this.y = y;
     }
 }

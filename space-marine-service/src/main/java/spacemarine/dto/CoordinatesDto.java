@@ -9,12 +9,12 @@ import jakarta.xml.bind.annotation.XmlType;
 public class CoordinatesDto {
 
     private Integer x;
-    private Integer y;
+    private Float y;
 
     public CoordinatesDto() {
     }
 
-    public CoordinatesDto(Integer x, Integer y) {
+    public CoordinatesDto(Integer x, Float y) {
         this.x = x;
         this.y = y;
     }

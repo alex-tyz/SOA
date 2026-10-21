@@ -37,7 +37,7 @@ public final class SpaceMarineValidator {
             violations.add("coordinates: поле обязательно");
         } else {
             Integer x = parseInt("coordinates.x", rawCoordinates.getX(), typeErrors, violations);
-            Integer y = parseInt("coordinates.y", rawCoordinates.getY(), typeErrors, violations);
+            Float y = parseFloat("coordinates.y", rawCoordinates.getY(), typeErrors, violations);
             coordinates = new Coordinates();
             coordinates.setX(x);
             coordinates.setY(y);
@@ -112,5 +112,21 @@ public final class SpaceMarineValidator {
             typeErrors.add(field + ": ожидалось целое число");
             return null;
         }
+    }
+
+    private static Float parseFloat(String field, String raw, List<String> typeErrors, List<String> violations) {
+        if (raw == null) {
+            violations.add(field + ": поле обязательно");
+            return null;
+        }
+        try {
+            float value = Float.parseFloat(raw.trim());
+            if (Float.isFinite(value)) {
+                return value;
+            }
+        } catch (NumberFormatException ignored) {
+        }
+        typeErrors.add(field + ": ожидалось конечное число с плавающей точкой");
+        return null;
     }
 }

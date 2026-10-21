@@ -45,3 +45,5 @@ build/
 .gradle/
 *.jks
 *.p12
+deploy/env.local.sh
+.runtime/

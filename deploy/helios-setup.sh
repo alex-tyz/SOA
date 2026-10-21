@@ -1,41 +1,33 @@
 #!/bin/sh
 set -e
 
-export _JAVA_OPTIONS="${_JAVA_OPTIONS:--XX:MaxHeapSize=768m -XX:MaxMetaspaceSize=256m}"
+export _JAVA_OPTIONS="${_JAVA_OPTIONS:--Xmx128m -XX:ActiveProcessorCount=2}"
+export JAVA_HOME="${JAVA_HOME:-/usr/local/openjdk21}"
 
 BASE="$HOME/soa-lab2"
+PAYARA_INSTALL_DIR="${PAYARA_INSTALL_DIR:-$BASE}"
 PAYARA_VERSION="6.2025.11"
 DRIVER_VERSION="42.7.4"
-DOMAIN="spacemarine"
-PORTBASE="${PORTBASE:-38696}"
-DB_HOST="pg"
+DOMAIN="domain1"
+DB_HOST="127.0.0.1"
 DB_NAME="studs"
 DB_USER="$(id -un)"
-DB_SCHEMA="soa_lab2"
+DB_SCHEMA="$(id -un)"
 APP="space-marine-service-1.0"
 
-PAYARA_HOME="$BASE/payara6"
-PASSWORD_FILE="$BASE/.admin-pw"
-ADMIN_PORT=$((PORTBASE + 48))
-HTTP_PORT=$((PORTBASE + 80))
-HTTPS_PORT=$((PORTBASE + 81))
-ASADMIN="$PAYARA_HOME/bin/asadmin --user admin --port $ADMIN_PORT --passwordfile $PASSWORD_FILE"
+PAYARA_HOME="$PAYARA_INSTALL_DIR/payara6"
+ADMIN_PORT=4848
+HTTP_PORT=8080
+HTTPS_PORT=8181
+ASADMIN="$PAYARA_HOME/bin/asadmin --user admin --port $ADMIN_PORT"
 
-cd "$BASE"
+mkdir -p "$BASE" "$PAYARA_INSTALL_DIR"
+cd "$PAYARA_INSTALL_DIR"
 
 if [ ! -d "$PAYARA_HOME" ]; then
-    curl -fsSL -o payara.zip "https://repo1.maven.org/maven2/fish/payara/distributions/payara/$PAYARA_VERSION/payara-$PAYARA_VERSION.zip"
+    curl -fsSL -o payara.zip "https://repo.maven.apache.org/maven2/fish/payara/distributions/payara/$PAYARA_VERSION/payara-$PAYARA_VERSION.zip"
     tar -xf payara.zip
     rm payara.zip
-fi
-
-if [ ! -f "$PASSWORD_FILE" ]; then
-    (umask 077; printf 'AS_ADMIN_PASSWORD=%s\nAS_ADMIN_MASTERPASSWORD=changeit\n' \
-        "$(head -c 18 /dev/urandom | od -An -tx1 | tr -d ' \n')" > "$PASSWORD_FILE")
-fi
-
-if [ ! -d "$PAYARA_HOME/glassfish/domains/$DOMAIN" ]; then
-    $ASADMIN create-domain --portbase "$PORTBASE" "$DOMAIN"
 fi
 
 if ! $ASADMIN list-domains | grep -q "$DOMAIN running"; then
@@ -43,9 +35,10 @@ if ! $ASADMIN list-domains | grep -q "$DOMAIN running"; then
 fi
 
 $ASADMIN set "configs.config.server-config.network-config.network-listeners.network-listener.admin-listener.address=127.0.0.1"
+$ASADMIN set-hazelcast-configuration --enabled=false --dynamic=true
 
 if ! $ASADMIN list-libraries | grep -q postgresql; then
-    curl -fsSL -o postgresql.jar "https://repo1.maven.org/maven2/org/postgresql/postgresql/$DRIVER_VERSION/postgresql-$DRIVER_VERSION.jar"
+    curl -fsSL -o postgresql.jar "https://repo.maven.apache.org/maven2/org/postgresql/postgresql/$DRIVER_VERSION/postgresql-$DRIVER_VERSION.jar"
     $ASADMIN add-library postgresql.jar
 fi
 
@@ -54,8 +47,7 @@ export CERT_CN="helios.cs.ifmo.ru"
 export CERT_SAN="dns:localhost,dns:helios.cs.ifmo.ru"
 sh "$BASE/payara-https.sh"
 
-psql -h "$DB_HOST" -d "$DB_NAME" -v ON_ERROR_STOP=1 -c "CREATE SCHEMA IF NOT EXISTS $DB_SCHEMA"
-if [ -z "$(psql -h "$DB_HOST" -d "$DB_NAME" -tA -c "SELECT to_regclass('$DB_SCHEMA.space_marine')")" ]; then
+if [ -z "$(psql -h "$DB_HOST" -d "$DB_NAME" -tA -c "SELECT to_regclass('$DB_SCHEMA.soa2_space_marine')")" ]; then
     PGOPTIONS="-c search_path=$DB_SCHEMA" psql -h "$DB_HOST" -d "$DB_NAME" -v ON_ERROR_STOP=1 -f "$BASE/space-marine.sql"
 fi
 
@@ -65,7 +57,7 @@ if ! $ASADMIN list-password-aliases | grep -q dbpass; then
         echo "no password for $DB_USER in ~/.pgpass" >&2
         exit 1
     fi
-    (umask 077; { cat "$PASSWORD_FILE"; printf 'AS_ADMIN_ALIASPASSWORD=%s\n' "$DB_PASSWORD"; } > "$BASE/.alias-pw")
+    (umask 077; printf 'AS_ADMIN_ALIASPASSWORD=%s\n' "$DB_PASSWORD" > "$BASE/.alias-pw")
     "$PAYARA_HOME/bin/asadmin" --user admin --port "$ADMIN_PORT" --passwordfile "$BASE/.alias-pw" create-password-alias dbpass
     rm -f "$BASE/.alias-pw"
 fi

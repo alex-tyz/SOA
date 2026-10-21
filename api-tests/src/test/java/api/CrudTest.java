@@ -21,7 +21,7 @@ class CrudTest extends ApiTest {
         assertEquals("/api/v1/space-marines/" + id, response.header("Location"));
         assertEquals("Titus", response.text("/spaceMarine/name"));
         assertEquals("1", response.text("/spaceMarine/coordinates/x"));
-        assertEquals("2", response.text("/spaceMarine/coordinates/y"));
+        assertEquals("2.0", response.text("/spaceMarine/coordinates/y"));
         assertEquals(LocalDate.now().toString(), response.text("/spaceMarine/creationDate"));
         assertEquals("100", response.text("/spaceMarine/health"));
         assertEquals("true", response.text("/spaceMarine/loyal"));

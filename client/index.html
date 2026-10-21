@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Space Marines</title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css?v=4">
 </head>
 <body>
 <header>
@@ -23,10 +23,8 @@
             <label>Сервис Starship
                 <input type="text" id="starship-url" spellcheck="false">
             </label>
-            <p>Сервисы работают по HTTPS с самоподписанным сертификатом. При первом обращении откройте
-                <a id="marine-open" target="_blank" rel="noopener">адрес SpaceMarine</a> и
-                <a id="starship-open" target="_blank" rel="noopener">адрес Starship</a>
-                в браузере и подтвердите исключение для сертификата.</p>
+            <p>По умолчанию запросы идут через HTTPS-сайт helios к локальным HTTPS-сервисам.
+                При прямом подключении к сервисам с самоподписанным сертификатом браузеру нужно доверять их сертификатам.</p>
             <button type="submit">Сохранить адреса</button>
         </form>
     </details>

@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>SpaceMarine и Starship API</title>
+    <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5.32.0/swagger-ui.css">
+</head>
+<body>
+<div id="swagger-ui"></div>
+<script src="https://unpkg.com/swagger-ui-dist@5.32.0/swagger-ui-bundle.js"></script>
+<script src="https://unpkg.com/swagger-ui-dist@5.32.0/swagger-ui-standalone-preset.js"></script>
+<script>
+    SwaggerUIBundle({
+        url: 'openapi.yaml',
+        dom_id: '#swagger-ui',
+        presets: [SwaggerUIBundle.presets.apis, SwaggerUIStandalonePreset],
+        layout: 'StandaloneLayout',
+        requestInterceptor(request) {
+            const target = new URL(request.url, location.href);
+            if (!target.pathname.startsWith('/api/v1/')) {
+                return request;
+            }
+            const proxy = new URL('../soa-lab2/api.php', location.href);
+            proxy.searchParams.set('service', target.port === '21138' ? 'starship' : 'marine');
+            proxy.searchParams.set('path', target.pathname.slice('/api/v1'.length));
+            if (target.search) {
+                proxy.searchParams.set('query', target.search.slice(1));
+            }
+            if (request.method === 'PUT' || request.method === 'DELETE') {
+                proxy.searchParams.set('method', request.method);
+                request.method = 'POST';
+            }
+            request.url = proxy.href;
+            return request;
+        }
+    });
+</script>
+</body>
+</html>

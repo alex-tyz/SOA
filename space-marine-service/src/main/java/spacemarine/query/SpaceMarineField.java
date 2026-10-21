@@ -10,7 +10,7 @@ public enum SpaceMarineField {
     ID("id", "m.id", SpaceMarineField::positiveInt),
     NAME("name", "m.name", SpaceMarineField::nonEmpty),
     COORDINATES_X("coordinates.x", "m.coordinates.x", SpaceMarineField::anyInt),
-    COORDINATES_Y("coordinates.y", "m.coordinates.y", SpaceMarineField::anyInt),
+    COORDINATES_Y("coordinates.y", "m.coordinates.y", SpaceMarineField::anyFloat),
     CREATION_DATE("creationDate", "m.creationDate", SpaceMarineField::date),
     HEALTH("health", "m.health", SpaceMarineField::positiveInt),
     LOYAL("loyal", "m.loyal", SpaceMarineField::bool),
@@ -56,6 +56,17 @@ public enum SpaceMarineField {
         } catch (NumberFormatException e) {
             throw new IllegalArgumentException("ожидалось целое число");
         }
+    }
+
+    private static Object anyFloat(String raw) {
+        try {
+            float value = Float.parseFloat(raw);
+            if (Float.isFinite(value)) {
+                return value;
+            }
+        } catch (NumberFormatException ignored) {
+        }
+        throw new IllegalArgumentException("ожидалось конечное число с плавающей точкой");
     }
 
     private static Object positiveInt(String raw) {

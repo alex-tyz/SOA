@@ -22,6 +22,29 @@ body {
     font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
 }
 
+@media (min-width: 1280px) {
+    body::before,
+    body::after {
+        content: "";
+        position: fixed;
+        top: 150px;
+        bottom: 0;
+        width: min(240px, calc((100vw - 1040px) / 2));
+        background: #78797d url("assets/imperial-eagle.png") center 28px / 100% auto no-repeat;
+        pointer-events: none;
+    }
+
+    body::before {
+        left: 0;
+        box-shadow: 3px 0 12px rgba(27, 35, 51, 0.12);
+    }
+
+    body::after {
+        right: 0;
+        box-shadow: -3px 0 12px rgba(27, 35, 51, 0.12);
+    }
+}
+
 header {
     padding: 28px 0 56px;
     background: linear-gradient(120deg, #1b43a8, #2457d6 55%, #3d8bfd);

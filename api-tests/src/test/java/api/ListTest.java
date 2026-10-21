@@ -67,6 +67,7 @@ class ListTest extends ApiTest {
         assertEquals(List.of("Alpha"), names("health=100&loyal=true"));
         assertEquals(5, names("chapter.name=C&creationDate=" + LocalDate.now()).size());
         assertEquals(List.of("Charlie"), names("coordinates.x=3"));
+        assertEquals(List.of("Charlie"), names("coordinates.y=3.0"));
         assertEquals(List.of("Alpha", "Delta"), names("achievements=Beta"));
     }
 
@@ -90,7 +91,7 @@ class ListTest extends ApiTest {
     @Test
     void invalidQueryParametersAre400() {
         for (String query : new String[]{"page=0", "page=abc", "size=0", "size=101", "sort=foo",
-                "sort=health&sort=-health", "weaponType=meltagun", "health=abc", "loyal=yes", "creationDate=2026-13-45"}) {
+                "sort=health&sort=-health", "weaponType=meltagun", "health=abc", "loyal=yes", "creationDate=2026-13-45", "coordinates.y=NaN"}) {
             Api.Response response = Api.get("/space-marines?" + query);
             assertEquals(400, response.status(), query);
             assertEquals("Некорректные query-параметры", response.text("/error/message"), query);

@@ -1,7 +1,5 @@
--- Пересоздаём таблицу с нуля, чтобы скрипт можно было запускать повторно
-DROP TABLE IF EXISTS space_marine;
-
-CREATE TABLE space_marine (
+-- Отдельная таблица лабораторной №2: существующую space_marine не затрагиваем.
+CREATE TABLE IF NOT EXISTS soa2_space_marine (
     -- id: целое > 0, уникальное, генерирует база (SERIAL = автоинкремент)
                               id                    SERIAL       PRIMARY KEY,
 
@@ -10,7 +8,7 @@ CREATE TABLE space_marine (
 
     -- coordinates: вложенный объект разворачиваем в две колонки, обе обязательны
                               coordinates_x         INTEGER      NOT NULL,
-                              coordinates_y         INTEGER      NOT NULL,
+                              coordinates_y         REAL         NOT NULL,
 
     -- creationDate: не null, если не передали — база подставит сегодняшнюю дату
                               creation_date         DATE         NOT NULL DEFAULT CURRENT_DATE,

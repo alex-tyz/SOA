@@ -36,7 +36,8 @@ keytool -exportcert -rfc -alias "$CERT_ALIAS" -keystore "$KEYSTORE" -storetype P
 
 $ASADMIN set "$NET.protocols.protocol.$HTTPS_LISTENER.ssl.cert-nickname=$CERT_ALIAS"
 $ASADMIN set "$NET.network-listeners.network-listener.$HTTP_LISTENER.enabled=false"
-$ASADMIN restart-domain "$DOMAIN"
+$ASADMIN stop-domain "$DOMAIN"
+$ASADMIN start-domain "$DOMAIN"
 
 echo "https listener: $HTTPS_LISTENER, plain http listener $HTTP_LISTENER disabled"
 echo "public certificate: $CERT_FILE"

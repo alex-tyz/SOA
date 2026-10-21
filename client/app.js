@@ -1,9 +1,10 @@
 'use strict';
 
-const STORAGE_KEY = 'soa-lab2-settings';
+const STORAGE_KEY = 'soa-lab2-settings-v2';
+const PROXY_URL = new URL('api.php', window.location.href).href;
 const DEFAULTS = {
-    marineUrl: 'https://localhost:8181/api/v1',
-    starshipUrl: 'https://localhost:8182/api/v1'
+    marineUrl: PROXY_URL + '?service=marine',
+    starshipUrl: PROXY_URL + '?service=starship'
 };
 
 const FIELDS = [
@@ -146,14 +147,29 @@ function errorFromResponse(status, body, url) {
 }
 
 async function request(baseUrl, path, {method = 'GET', body = null, query = null} = {}) {
-    const url = baseUrl.replace(/\/+$/, '') + path + (query ? '?' + query : '');
+    const base = new URL(baseUrl);
+    let url;
+    let transportMethod = method;
+    if (base.pathname.endsWith('/api.php') && base.searchParams.has('service')) {
+        base.searchParams.set('path', path);
+        if (query) {
+            base.searchParams.set('query', query.toString());
+        }
+        if (method === 'PUT' || method === 'DELETE') {
+            base.searchParams.set('method', method);
+            transportMethod = 'POST';
+        }
+        url = base.href;
+    } else {
+        url = baseUrl.replace(/\/+$/, '') + path + (query ? '?' + query : '');
+    }
     const headers = {Accept: 'application/xml'};
     if (body !== null) {
         headers['Content-Type'] = 'application/xml';
     }
     let response;
     try {
-        response = await fetch(url, {method, headers, body});
+        response = await fetch(url, {method: transportMethod, headers, body});
     } catch (e) {
         throw new ApiError(0, 'Не удалось связаться с сервисом', [], url, true);
     }
@@ -208,10 +224,7 @@ function showError(error) {
         content.push(el('ul', {}, e.details.map(d => el('li', {}, d))));
     }
     if (e.network) {
-        const origin = new URL(e.url).origin;
-        content.push(el('p', {}, 'Проверьте, что сервис запущен. Если он работает, откройте ',
-            el('a', {href: origin, target: '_blank', rel: 'noopener'}, origin),
-            ' и подтвердите самоподписанный сертификат, затем повторите действие.'));
+        content.push(el('p', {}, 'Проверьте доступность сервиса и повторите действие.'));
     }
     showMessage('error', ...content);
 }
@@ -421,8 +434,6 @@ async function unloadShip() {
 function syncSettingsForm() {
     $('#marine-url').value = settings.marineUrl;
     $('#starship-url').value = settings.starshipUrl;
-    $('#marine-open').href = new URL(settings.marineUrl).origin;
-    $('#starship-open').href = new URL(settings.starshipUrl).origin;
 }
 
 async function saveSettingsForm() {
