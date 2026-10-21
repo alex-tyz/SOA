@@ -1,6 +1,6 @@
 package spacemarine.service;
 
-import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.context.RequestScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import spacemarine.entity.SpaceMarine;
@@ -15,13 +15,13 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
-@ApplicationScoped
-@Transactional
+@RequestScoped
 public class SpaceMarineService {
 
     @Inject
     SpaceMarineRepository repository;
 
+    @Transactional
     public SpaceMarine create(SpaceMarine candidate) {
         candidate.setCreationDate(LocalDate.now());
         repository.save(candidate);
@@ -32,16 +32,19 @@ public class SpaceMarineService {
         return findOrThrow(id);
     }
 
+    @Transactional
     public SpaceMarine update(int id, SpaceMarine candidate) {
         SpaceMarine existing = findOrThrow(id);
         SpaceMarineMapper.copyFields(candidate, existing);
         return existing;
     }
 
+    @Transactional
     public void delete(int id) {
         repository.delete(findOrThrow(id));
     }
 
+    @Transactional
     public SpaceMarine deleteAnyByWeapon(Weapon weapon) {
         SpaceMarine marine = repository.findFirstByWeapon(weapon);
         if (marine == null) {

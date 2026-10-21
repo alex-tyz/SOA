@@ -35,20 +35,6 @@ const COLUMNS = [
     ['Легион', m => m.chapter && m.chapter.parentLegion]
 ];
 
-const STATUS_HINTS = {
-    400: 'Сервис отклонил запрос: переданы некорректные данные',
-    404: 'Объект не найден',
-    405: 'Метод не поддерживается',
-    406: 'Сервис отвечает только в формате application/xml',
-    409: 'Операция противоречит текущему состоянию',
-    415: 'Сервис принимает только application/xml',
-    422: 'Сервису отправлены невалидные данные: нарушены ограничения',
-    500: 'Внутренняя ошибка сервера',
-    502: 'Сервис SpaceMarine вернул ошибку',
-    503: 'Сервис SpaceMarine недоступен',
-    504: 'Сервис SpaceMarine не ответил вовремя'
-};
-
 const state = {page: 1, size: 10, totalPages: 0};
 let settings = loadSettings();
 let editingId = null;
@@ -215,9 +201,8 @@ function showInfo(textValue) {
 
 function showError(error) {
     const e = error instanceof ApiError ? error : new ApiError(0, String(error));
-    const title = e.status ? `Ошибка ${e.status}. ${STATUS_HINTS[e.status] || ''}` : e.message;
-    const content = [el('strong', {}, title)];
-    if (e.status) {
+    const content = [el('strong', {}, e.status ? `Ошибка ${e.status}` : 'Ошибка')];
+    if (e.message) {
         content.push(el('p', {}, e.message));
     }
     if (e.details.length) {
