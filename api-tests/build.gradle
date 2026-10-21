@@ -1,0 +1,18 @@
+dependencies {
+    testImplementation platform('org.junit:junit-bom:5.10.2')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+test {
+    useJUnitPlatform()
+    systemProperty 'api.baseUrl', findProperty('api.baseUrl') ?: 'https://localhost:8181/api/v1'
+    systemProperty 'api.httpUrl', findProperty('api.httpUrl') ?: 'http://localhost:8080/api/v1'
+    systemProperty 'api.truststore', rootProject.file('deploy/truststore.p12').absolutePath
+    systemProperty 'api.truststorePassword', findProperty('api.truststorePassword') ?: 'changeit'
+    testLogging {
+        events 'passed', 'failed'
+        exceptionFormat 'full'
+    }
+    outputs.upToDateWhen { false }
+}
